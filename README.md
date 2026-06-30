@@ -1,5 +1,16 @@
 # Control System Commander (CSCom)
-A lightweight system monitoring tools. CPU, RAM, Disk, Network, Docker, and Processes. Have to mode TUI only accessed via local and RestAPI and Websocket for realtime data
+A lightweight system monitoring tool. CPU, RAM, Disk, Network, Docker, and Processes — two modes: TUI for local access, and a web dashboard with REST API + WebSocket for real-time data.
+
+## Screenshots
+
+### Web Dashboard
+![Dashboard](docs/cscom_dashboard.png)
+
+### Login Page
+![Login](docs/cscom_login.png)
+
+### TUI
+![TUI](docs/cscom_tui.png)
 
 ## Features
 
@@ -123,9 +134,11 @@ cscom/
 │   │   ├── docker.go
 │   │   └── processes.go
 │   └── transport/
-│       └── server.go            # HTTP / REST API / WebSocket
+│       ├── server.go            # HTTP / REST API / WebSocket
+│       └── auth.go              # Session store, auth middleware, login/logout
 ├── web/
-│   └── index.html               # Dashboard frontend
+│   ├── index.html               # Dashboard frontend
+│   └── login.html               # Login page
 ├── install.sh
 ├── uninstall.sh
 ├── go.mod
