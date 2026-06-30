@@ -1,0 +1,9 @@
+# Binaries
+bin/
+
+# Environment variables (contains secrets)
+.env
+
+# Go build cache
+*.test
+*.out

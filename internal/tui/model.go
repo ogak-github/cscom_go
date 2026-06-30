@@ -1,0 +1,94 @@
+package tui
+
+import (
+	"strings"
+	"time"
+
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
+	"yga.my.id/cscom/internal/metrics"
+)
+
+type tickMsg time.Time
+
+type Model struct {
+	collector *metrics.Collector
+	snap      metrics.Snapshot
+	width     int
+	height    int
+	viewport  viewport.Model
+	ready     bool
+}
+
+func New(c *metrics.Collector) Model {
+	return Model{collector: c, snap: c.Latest()}
+}
+
+func (m Model) Init() tea.Cmd {
+	return tick()
+}
+
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q", "ctrl+c":
+			return m, tea.Quit
+		case "up", "k":
+			m.viewport.LineUp(1)
+		case "down", "j":
+			m.viewport.LineDown(1)
+		case "pgup":
+			m.viewport.HalfViewUp()
+		case "pgdown":
+			m.viewport.HalfViewDown()
+		case "home":
+			m.viewport.GotoTop()
+		case "end":
+			m.viewport.GotoBottom()
+		}
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		headerHeight := 2
+		footerHeight := 1
+		verticalMargin := headerHeight + footerHeight
+
+		if !m.ready {
+			m.viewport = viewport.New(msg.Width, msg.Height-verticalMargin)
+			m.viewport.SetContent(renderContent(m))
+			m.ready = true
+		} else {
+			m.viewport.Width = msg.Width
+			m.viewport.Height = msg.Height - verticalMargin
+		}
+	case tickMsg:
+		m.snap = m.collector.Latest()
+		m.viewport.SetContent(renderContent(m))
+		return m, tick()
+	}
+
+	var cmd tea.Cmd
+	m.viewport, cmd = m.viewport.Update(msg)
+	return m, cmd
+}
+
+func renderContent(m Model) string {
+	var b strings.Builder
+
+	b.WriteString(renderSystem(m.snap.System, m.snap.CPU, m.width))
+	b.WriteString(renderCPU(m.snap.CPU, m.barWidth(), m.compact()))
+	b.WriteString(renderRAM(m.snap.RAM, m.barWidth()))
+	b.WriteString(renderDisks(m.snap.Disks, m.barWidth()))
+	b.WriteString(renderNetwork(m.snap.Networks, m.width))
+	b.WriteString(renderProcesses(m.snap.Processes, m.processNameWidth()))
+	b.WriteString(renderDocker(m.snap.Containers, m.barWidth(), m.width))
+
+	return b.String()
+}
+
+func tick() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
