@@ -14,10 +14,17 @@ SERVICE="cscom"
 
 # ── detect or prompt for key ──────────────────────────────────────────────────
 CSCOM_KEY=""
+_read_local_env() {
+  grep '^CSCOM_KEY=' .env 2>/dev/null | cut -d= -f2- || true
+}
+
 if [[ "$TARGET" == "local" ]]; then
   if [[ -f "${INSTALL_DIR}/.env" ]]; then
     CSCOM_KEY="$(sudo grep '^CSCOM_KEY=' "${INSTALL_DIR}/.env" | cut -d= -f2- || true)"
     echo "→ Using existing CSCOM_KEY from ${INSTALL_DIR}/.env"
+  elif [[ -f ".env" ]]; then
+    CSCOM_KEY="$(_read_local_env)"
+    echo "→ Using CSCOM_KEY from local .env"
   else
     read -rsp "CSCOM_KEY (leave empty to disable auth): " CSCOM_KEY
     echo
@@ -27,6 +34,9 @@ else
     LINE="$(ssh "$TARGET" "grep '^CSCOM_KEY=' ${INSTALL_DIR}/.env || true")"
     CSCOM_KEY="${LINE#CSCOM_KEY=}"
     echo "→ Using existing CSCOM_KEY from remote ${INSTALL_DIR}/.env"
+  elif [[ -f ".env" ]]; then
+    CSCOM_KEY="$(_read_local_env)"
+    echo "→ Using CSCOM_KEY from local .env"
   else
     read -rsp "CSCOM_KEY (leave empty to disable auth): " CSCOM_KEY
     echo
