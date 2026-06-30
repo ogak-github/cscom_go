@@ -78,10 +78,10 @@ Then:
 ```
 
 Both commands will:
-1. Prompt for `CSCOM_KEY` (leave empty to disable auth) 
+1. Use the existing `CSCOM_KEY` from `/opt/cscom/.env` if present, otherwise prompt to enter one
 2. Build standalone binaries
 3. Install to `/opt/cscom` + create systemd service
-5. Start/restart the service
+4. Start/restart the service
 
 ### Uninstall
 
