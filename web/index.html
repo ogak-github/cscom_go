@@ -237,7 +237,9 @@
 <main>
   <div class="card" id="sys"><div class="card-title">System</div><div class="empty">—</div></div>
   <div class="card" id="cpu"><div class="card-title">CPU</div><div class="empty">—</div></div>
+  <div class="card" id="fans" style="display:none"><div class="card-title">Fans</div><div class="empty">—</div></div>
   <div class="card" id="ram"><div class="card-title">RAM</div><div class="empty">—</div></div>
+  <div class="card" id="gpu" style="display:none"><div class="card-title">GPU</div><div class="empty">—</div></div>
   <div class="card" id="disk"><div class="card-title">Disk</div><div class="empty">—</div></div>
   <div class="card" id="net"><div class="card-title">Network</div><div class="empty">—</div></div>
   <div class="card wide" id="proc"><div class="card-title">Processes</div><div class="empty">—</div></div>
@@ -302,8 +304,22 @@
     cores.forEach((p, i) => { h += row(`Core ${i}`, p) })
     h += `<div class="meta">Load: ${c.load1.toFixed(2)} / ${c.load5.toFixed(2)} / ${c.load15.toFixed(2)}`
     if (c.uptime) h += `<span style="margin-left:16px">Up: ${fmtUptime(c.uptime)}</span>`
+    if (c.temp_c >= 0) h += `<span style="margin-left:16px">Temp: ${c.temp_c.toFixed(0)}°C</span>`
     h += '</div>'
     return h
+  }
+
+  function renderFans(fans) {
+    const el = $('fans')
+    if (!fans || !fans.length) {
+      el.style.display = 'none'
+      return
+    }
+    el.style.display = ''
+    let h = '<div class="card-title">Fans</div>'
+    for (const f of fans)
+      h += infoRow(f.label, `${f.rpm} RPM`)
+    el.innerHTML = h
   }
 
   function renderRAM(r) {
@@ -315,6 +331,39 @@
       h += `<div class="sub">avail: ${bytes(r.swap_total - r.swap_used)}</div>`
     }
     return h
+  }
+
+  function gpuRow(label, p, sub) {
+    if (p < 0) {
+      return `
+        <div class="row">
+          <span class="lbl" title="${label}">${label}</span>
+          <span class="sub" style="margin:0;grid-column:2/4;text-align:left">n/a</span>
+        </div>`
+    }
+    return row(label, p, sub)
+  }
+
+  function renderGpu(gpus) {
+    const el = $('gpu')
+    if (!gpus || !gpus.length) {
+      el.style.display = 'none'
+      return
+    }
+    el.style.display = ''
+    let h = '<div class="card-title">GPU</div>'
+    for (const g of gpus) {
+      h += `<div class="meta" style="margin-bottom:6px">${g.vendor} ${g.name}</div>`
+      h += gpuRow('Util', g.util_pct)
+      h += g.mem_total > 0
+        ? gpuRow('Mem', g.mem_pct, `${bytes(g.mem_used)} / ${bytes(g.mem_total)}`)
+        : gpuRow('Mem', -1)
+      let extra = []
+      if (g.temp_c >= 0) extra.push(`${g.temp_c.toFixed(0)}°C`)
+      if (g.fan_pct >= 0) extra.push(`Fan ${g.fan_pct.toFixed(0)}%`)
+      if (extra.length) h += `<div class="sub" style="text-align:left;margin-bottom:8px">${extra.join('  ·  ')}</div>`
+    }
+    el.innerHTML = h
   }
 
   function renderDisk(disks) {
@@ -388,7 +437,9 @@
   function render(snap) {
     $('sys').innerHTML  = renderSystem(snap.system, snap.cpu)
     $('cpu').innerHTML  = renderCPU(snap.cpu)
+    renderFans(snap.fans)
     $('ram').innerHTML  = renderRAM(snap.ram)
+    renderGpu(snap.gpus)
     $('disk').innerHTML = renderDisk(snap.disks)
     $('net').innerHTML  = renderNet(snap.networks)
     $('proc').innerHTML = renderProc(snap.processes)

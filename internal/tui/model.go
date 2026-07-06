@@ -74,15 +74,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func renderContent(m Model) string {
-	var b strings.Builder
+	cw := m.contentWidth()
+	bw := m.boxWidth()
 
-	b.WriteString(renderSystem(m.snap.System, m.snap.CPU, m.width))
-	b.WriteString(renderCPU(m.snap.CPU, m.barWidth(), m.compact()))
-	b.WriteString(renderRAM(m.snap.RAM, m.barWidth()))
-	b.WriteString(renderDisks(m.snap.Disks, m.barWidth()))
-	b.WriteString(renderNetwork(m.snap.Networks, m.width))
-	b.WriteString(renderProcesses(m.snap.Processes, m.processNameWidth()))
-	b.WriteString(renderDocker(m.snap.Containers, m.barWidth(), m.width))
+	sections := []string{
+		renderSystem(m.snap.System, m.snap.CPU, cw),
+		renderCPU(m.snap.CPU, m.barWidth(), m.compact()),
+		renderFans(m.snap.Fans),
+		renderRAM(m.snap.RAM, m.barWidth()),
+		renderGPU(m.snap.GPUs, m.barWidth()),
+		renderDisks(m.snap.Disks, m.barWidth()),
+		renderNetwork(m.snap.Networks, cw),
+		renderProcesses(m.snap.Processes, m.processNameWidth()),
+		renderDocker(m.snap.Containers, m.barWidth(), cw),
+	}
+
+	var b strings.Builder
+	for _, s := range sections {
+		if boxed := renderBox(s, bw); boxed != "" {
+			b.WriteString(boxed)
+			b.WriteString("\n")
+		}
+	}
 
 	return b.String()
 }

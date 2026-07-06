@@ -14,6 +14,18 @@ const (
 	barWidthNarrow = 14
 	barWidthMedium = 20
 	barWidthWide   = 28
+
+	// dockerImageWidth is the column budget for the ID+NAME+IMAGE+CPU%+MEM+
+	// NET↓+NET↑ layout in renderDocker - it needs ~101 columns, so it can't
+	// share the mediumWidth threshold used for the narrower NET-only tier.
+	dockerImageWidth = 105
+
+	// boxBorderWidth is the rounded border lipgloss draws on top of
+	// whatever width we give it (1 column each side).
+	boxBorderWidth = 2
+	// boxPadding is the horizontal padding inside the border (1 column
+	// each side), already included in the width passed to boxStyle.
+	boxPadding = 2
 )
 
 var (
@@ -23,13 +35,51 @@ var (
 	okStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	warnStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
 	critStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+
+	boxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("8")).
+			Padding(0, 1)
 )
 
+// contentWidth is how much horizontal space a section's text actually has
+// once a rounded box's border and padding are subtracted from the terminal
+// width - bar/column sizing must be based on this, not the raw width.
+func (m Model) contentWidth() int {
+	w := m.width - boxBorderWidth - boxPadding
+	if w < 1 {
+		w = 1
+	}
+	return w
+}
+
+// boxWidth is the width to hand lipgloss's Width(), which already accounts
+// for padding internally - the rounded border adds boxBorderWidth on top of
+// this to reach the full terminal width.
+func (m Model) boxWidth() int {
+	w := m.width - boxBorderWidth
+	if w < 1 {
+		w = 1
+	}
+	return w
+}
+
+// renderBox wraps a section's content in a rounded box, or returns "" if
+// the section had nothing to show - keeping the existing "hidden when
+// empty" convention for optional metrics.
+func renderBox(content string, width int) string {
+	if content == "" {
+		return ""
+	}
+	return boxStyle.Width(width).Render(strings.TrimRight(content, "\n"))
+}
+
 func (m Model) barWidth() int {
+	w := m.contentWidth()
 	switch {
-	case m.width < narrowWidth:
+	case w < narrowWidth:
 		return barWidthNarrow
-	case m.width < mediumWidth:
+	case w < mediumWidth:
 		return barWidthMedium
 	default:
 		return barWidthWide
@@ -37,10 +87,11 @@ func (m Model) barWidth() int {
 }
 
 func (m Model) processNameWidth() int {
+	w := m.contentWidth()
 	switch {
-	case m.width < narrowWidth:
+	case w < narrowWidth:
 		return 12
-	case m.width < mediumWidth:
+	case w < mediumWidth:
 		return 16
 	default:
 		return 24
@@ -48,7 +99,7 @@ func (m Model) processNameWidth() int {
 }
 
 func (m Model) compact() bool {
-	return m.width < narrowWidth
+	return m.contentWidth() < narrowWidth
 }
 
 func (m Model) View() string {
@@ -118,7 +169,11 @@ func renderCPU(c metrics.CPU, bw int, compact bool) string {
 		}
 	}
 	load := dimStyle.Render(fmt.Sprintf("  load: %.2f %.2f %.2f", c.Load1, c.Load5, c.Load15))
-	b.WriteString(headerStyle.Render("  CPU") + model + load + "\n")
+	temp := ""
+	if c.TempC >= 0 {
+		temp = dimStyle.Render(fmt.Sprintf("  temp: %.0f°C", c.TempC))
+	}
+	b.WriteString(headerStyle.Render("  CPU") + model + load + temp + "\n")
 
 	for i, pct := range c.PerCore {
 		if compact && i >= 8 {
@@ -149,6 +204,63 @@ func renderRAM(r metrics.RAM, bw int) string {
 			"Swap", coloredBar(r.SwapPct, bw),
 			pctColored(r.SwapPct, fmt.Sprintf("%5.1f%%", r.SwapPct)),
 			swapInfo))
+	}
+
+	return b.String()
+}
+
+func renderGPU(gpus []metrics.GPU, bw int) string {
+	if len(gpus) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString(headerStyle.Render("  GPU") + "\n")
+
+	for _, g := range gpus {
+		b.WriteString(fmt.Sprintf("  %s\n", dimStyle.Render(g.Vendor+" "+g.Name)))
+
+		if g.UtilPct >= 0 {
+			b.WriteString(fmt.Sprintf("  %-6s %s %s\n",
+				"Util", coloredBar(g.UtilPct, bw),
+				pctColored(g.UtilPct, fmt.Sprintf("%5.1f%%", g.UtilPct))))
+		} else {
+			b.WriteString(fmt.Sprintf("  %-6s %s\n", "Util", dimStyle.Render("n/a")))
+		}
+
+		if g.MemTotal > 0 {
+			memInfo := dimStyle.Render(formatBytes(g.MemUsed) + "/" + formatBytes(g.MemTotal))
+			b.WriteString(fmt.Sprintf("  %-6s %s %s  %s\n",
+				"Mem", coloredBar(g.MemPct, bw),
+				pctColored(g.MemPct, fmt.Sprintf("%5.1f%%", g.MemPct)),
+				memInfo))
+		} else {
+			b.WriteString(fmt.Sprintf("  %-6s %s\n", "Mem", dimStyle.Render("n/a")))
+		}
+
+		if g.TempC >= 0 {
+			b.WriteString(fmt.Sprintf("  %-6s %s\n", "Temp", dimStyle.Render(fmt.Sprintf("%.0f°C", g.TempC))))
+		}
+
+		if g.FanPct >= 0 {
+			b.WriteString(fmt.Sprintf("  %-6s %s\n", "Fan", dimStyle.Render(fmt.Sprintf("%.0f%%", g.FanPct))))
+		}
+	}
+
+	return b.String()
+}
+
+func renderFans(fans []metrics.Fan) string {
+	if len(fans) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString(headerStyle.Render("  Fans") + "\n")
+
+	for _, f := range fans {
+		b.WriteString(fmt.Sprintf("  %-20s %s\n",
+			truncate(f.Label, 20), dimStyle.Render(fmt.Sprintf("%d RPM", f.RPM))))
 	}
 
 	return b.String()
@@ -257,7 +369,7 @@ func renderDocker(containers []metrics.DockerContainer, bw int, width int) strin
 	b.WriteString(headerStyle.Render("  Docker") + "\n")
 
 	showNet := width >= mediumWidth
-	showImage := width >= mediumWidth
+	showImage := width >= dockerImageWidth
 
 	nameW := 16
 	imgW := 20

@@ -17,6 +17,8 @@ type Snapshot struct {
 	Networks   []Network         `json:"networks"`
 	Processes  []Process         `json:"processes"`
 	Containers []DockerContainer `json:"containers"`
+	GPUs       []GPU             `json:"gpus"`
+	Fans       []Fan             `json:"fans"`
 }
 
 // Collector keeps a cached Snapshot refreshed in the background.
@@ -71,6 +73,20 @@ func (c *Collector) Start(ctx context.Context, interval time.Duration) {
 			}
 		}
 	}()
+
+	go func() {
+		c.gpuRefresh()
+		t := time.NewTicker(2 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				c.gpuRefresh()
+			}
+		}
+	}()
 }
 
 // Latest returns a copy of the most recent Snapshot.
@@ -103,8 +119,11 @@ func (c *Collector) refresh() {
 	procs, newCache, _ := collectProcesses(c.procCache)
 	c.procCache = newCache
 
+	fans := collectFans()
+
 	c.mu.Lock()
 	containers := c.snap.Containers // preserve last Docker snapshot
+	gpus := c.snap.GPUs             // preserve last GPU snapshot
 	c.snap = Snapshot{
 		System:     sys,
 		CPU:        cpu,
@@ -113,6 +132,8 @@ func (c *Collector) refresh() {
 		Networks:   nets,
 		Processes:  procs,
 		Containers: containers,
+		GPUs:       gpus,
+		Fans:       fans,
 	}
 	c.mu.Unlock()
 }
@@ -124,5 +145,15 @@ func (c *Collector) dockerRefresh() {
 	}
 	c.mu.Lock()
 	c.snap.Containers = containers
+	c.mu.Unlock()
+}
+
+func (c *Collector) gpuRefresh() {
+	gpus, err := collectGPU()
+	if err != nil {
+		return
+	}
+	c.mu.Lock()
+	c.snap.GPUs = gpus
 	c.mu.Unlock()
 }
