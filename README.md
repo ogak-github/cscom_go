@@ -53,12 +53,13 @@ go build -o bin/cscom-serve ./cmd/cscom-serve/
 
 ## Deploy
 
-Both local and remote deploy use the same script. It will prompt for an API key before building.
+Both local and remote deploy use the same script. By default it installs both the TUI and the web server; pass `--tui` to install only the TUI.
 
 ### Local machine
 
 ```bash
-./install.sh local
+./install.sh local          # TUI + web server (dashboard + systemd service)
+./install.sh local --tui    # TUI only
 ```
 
 ### Remote server
@@ -75,13 +76,16 @@ Then:
 
 ```bash
 ./install.sh my-vps
+./install.sh my-vps --tui
 ```
 
-Both commands will:
+The default (full) install will:
 1. Use the existing `CSCOM_KEY` from `/opt/cscom/.env` if present, otherwise prompt to enter one
 2. Build standalone binaries
 3. Install to `/opt/cscom` + create systemd service
 4. Start/restart the service
+
+`--tui` skips all of that and just builds `cscom` and installs it to `/usr/local/bin`.
 
 ### Uninstall
 

@@ -2,8 +2,15 @@
 set -euo pipefail
 
 TARGET="${1:-}"
+MODE="full"
+case "${2:-}" in
+  "") ;;
+  --tui) MODE="tui" ;;
+  *) echo "Usage: $0 <local|ssh-host> [--tui]" >&2; exit 1 ;;
+esac
+
 if [[ -z "$TARGET" ]]; then
-  echo "Usage: $0 <local|ssh-host>" >&2
+  echo "Usage: $0 <local|ssh-host> [--tui]" >&2
   exit 1
 fi
 
@@ -12,7 +19,42 @@ fi
 INSTALL_DIR="/opt/cscom"
 SERVICE="cscom"
 
-# ── detect or prompt for key ──────────────────────────────────────────────────
+# ── detect target arch ────────────────────────────────────────────────────────
+echo "→ Detecting architecture…"
+if [[ "$TARGET" == "local" ]]; then
+  RAW_ARCH="$(uname -m)"
+else
+  RAW_ARCH="$(ssh "$TARGET" uname -m)"
+fi
+case "$RAW_ARCH" in
+  x86_64)        GOARCH="amd64" ;;
+  aarch64|arm64) GOARCH="arm64" ;;
+  *)             GOARCH="amd64" ;;
+esac
+echo "   linux/$GOARCH"
+
+# ── TUI-only install ────────────────────────────────────────────────────────────
+if [[ "$MODE" == "tui" ]]; then
+  echo "→ Building TUI…"
+  mkdir -p bin
+  GOOS=linux GOARCH=$GOARCH go build -ldflags="-s -w" -o bin/cscom ./cmd/cscom/
+
+  if [[ "$TARGET" == "local" ]]; then
+    echo "→ Installing to /usr/local/bin…"
+    sudo install -m 755 bin/cscom /usr/local/bin/cscom
+  else
+    echo "→ Deploying to ${TARGET}…"
+    scp -q bin/cscom "${TARGET}:/tmp/cscom"
+    ssh "$TARGET" "sudo install -m 755 /tmp/cscom /usr/local/bin/cscom && rm -f /tmp/cscom"
+  fi
+
+  echo ""
+  echo "✓ Done!"
+  echo "  TUI → cscom"
+  exit 0
+fi
+
+# ── detect or prompt for key (full install only) ───────────────────────────────
 CSCOM_KEY=""
 _read_local_env() {
   grep '^CSCOM_KEY=' .env 2>/dev/null | cut -d= -f2- || true
@@ -42,20 +84,6 @@ else
     echo
   fi
 fi
-
-# ── detect target arch ────────────────────────────────────────────────────────
-echo "→ Detecting architecture…"
-if [[ "$TARGET" == "local" ]]; then
-  RAW_ARCH="$(uname -m)"
-else
-  RAW_ARCH="$(ssh "$TARGET" uname -m)"
-fi
-case "$RAW_ARCH" in
-  x86_64)        GOARCH="amd64" ;;
-  aarch64|arm64) GOARCH="arm64" ;;
-  *)             GOARCH="amd64" ;;
-esac
-echo "   linux/$GOARCH"
 
 # ── build ─────────────────────────────────────────────────────────────────────
 echo "→ Building binaries…"
@@ -116,7 +144,7 @@ if [[ "$TARGET" == "local" ]]; then
 else
   echo "→ Deploying to ${TARGET}…"
   # scp to /tmp first (always writable), then sudo-install to final locations
-  scp -q bin/cscom bin/cscom-serve  "${TARGET}:/tmp/"
+  scp -q bin/cscom bin/cscom-serve "${TARGET}:/tmp/"
   scp -q web/index.html             "${TARGET}:/tmp/cscom-index.html"
   scp -q web/login.html             "${TARGET}:/tmp/cscom-login.html"
   scp -q "$TMP_ENV"                 "${TARGET}:/tmp/cscom.env"
