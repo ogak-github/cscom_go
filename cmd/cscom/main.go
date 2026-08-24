@@ -11,7 +11,15 @@ import (
 	"yga.my.id/cscom/internal/tui"
 )
 
+// version is injected at build time via -ldflags "-X main.version=..."
+var version = "dev"
+
 func main() {
+	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
+		fmt.Println("cscom", version)
+		return
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

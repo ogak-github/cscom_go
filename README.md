@@ -1,5 +1,5 @@
 # Control System Commander (CSCom)
-A lightweight system monitoring tool. CPU, RAM, Disk, Network, Docker, and Processes — two modes: TUI for local access, and a web dashboard with REST API + WebSocket for real-time data.
+A lightweight system monitoring tool. CPU, RAM, GPU, Disk, Network, Docker, and Processes — two modes: TUI for local access, and a web dashboard with REST API + WebSocket for real-time data.
 
 ## Screenshots
 
@@ -14,9 +14,11 @@ A lightweight system monitoring tool. CPU, RAM, Disk, Network, Docker, and Proce
 
 ## Features
 
-- **CPU** — usage per core, load average, model info
+- **CPU** — usage per core, load average, temperature, model info
 - **RAM** — used/free/total with usage bar
 - **Swap** — usage tracking
+- **GPU** — utilization, memory, temperature (NVIDIA via `nvidia-smi`, AMD/Intel via sysfs)
+- **Fans** — RPM per sensor (via hwmon)
 - **Disk** — usage per mount point
 - **Network** — RX/TX bytes, packets per interface
 - **Processes** — top processes sorted by CPU usage
@@ -26,7 +28,7 @@ A lightweight system monitoring tool. CPU, RAM, Disk, Network, Docker, and Proce
 
 ### Prerequisites
 
-- Go 1.21+
+- Go 1.26.4+
 
 ### Run locally (without installing)
 
@@ -131,20 +133,27 @@ cscom/
 ├── internal/
 │   ├── metrics/
 │   │   ├── collector.go         # Aggregates all metrics into a Snapshot
+│   │   ├── system.go
 │   │   ├── cpu.go
 │   │   ├── ram.go
 │   │   ├── disk.go
 │   │   ├── network.go
+│   │   ├── gpu.go
+│   │   ├── fan.go
 │   │   ├── docker.go
 │   │   └── processes.go
-│   └── transport/
-│       ├── server.go            # HTTP / REST API / WebSocket
-│       └── auth.go              # Session store, auth middleware, login/logout
+│   ├── transport/
+│   │   ├── server.go            # HTTP / REST API / WebSocket
+│   │   └── auth.go              # Session store, auth middleware, login/logout
+│   └── tui/
+│       ├── model.go             # Bubble Tea model — state + update loop
+│       └── view.go              # Terminal rendering
 ├── web/
 │   ├── index.html               # Dashboard frontend
 │   └── login.html               # Login page
 ├── install.sh
 ├── uninstall.sh
+├── release.sh                   # Builds the TUI binary for a GitHub release
 ├── go.mod
 ├── go.sum
 └── .env.example
