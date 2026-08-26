@@ -27,7 +27,7 @@ func main() {
 	collector.Refresh()
 	collector.Start(ctx, time.Second)
 
-	p := tea.NewProgram(tui.New(collector), tea.WithAltScreen())
+	p := tea.NewProgram(tui.New(collector, version), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

@@ -18,10 +18,11 @@ type Model struct {
 	height    int
 	viewport  viewport.Model
 	ready     bool
+	version   string
 }
 
-func New(c *metrics.Collector) Model {
-	return Model{collector: c, snap: c.Latest()}
+func New(c *metrics.Collector, version string) Model {
+	return Model{collector: c, snap: c.Latest(), version: version}
 }
 
 func (m Model) Init() tea.Cmd {

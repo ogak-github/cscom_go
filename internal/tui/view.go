@@ -108,7 +108,7 @@ func (m Model) View() string {
 	}
 
 	var b strings.Builder
-	b.WriteString(titleStyle.Render(" Control System Commander (CSCom)") + "\n")
+	b.WriteString(titleStyle.Render(fmt.Sprintf(" Control System Commander (CSCom) %s", m.version)) + "\n")
 	b.WriteString(m.viewport.View() + "\n")
 	b.WriteString(dimStyle.Render("  q quit | ↑↓ scroll | pgup/pgdn half page"))
 
