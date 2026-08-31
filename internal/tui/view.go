@@ -138,6 +138,9 @@ func renderSystem(s metrics.System, c metrics.CPU, width int) string {
 	}
 
 	row("Platform", s.Platform)
+	if s.Arch != "" {
+		row("Arch", s.Arch)
+	}
 	row("Hostname", s.Hostname)
 	if c.Uptime > 0 {
 		row("Uptime", fmtUptime(c.Uptime))

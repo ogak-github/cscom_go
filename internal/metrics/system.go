@@ -5,6 +5,7 @@ import "github.com/shirou/gopsutil/v3/host"
 type System struct {
 	Hostname string `json:"hostname"`
 	Platform string `json:"platform"`
+	Arch     string `json:"arch"`
 }
 
 func collectSystem() (System, error) {
@@ -25,6 +26,7 @@ func collectSystem() (System, error) {
 
 	return System{
 		Hostname: info.Hostname,
-		Platform: info.OS + " (" + arch + ")",
+		Platform: info.OS,
+		Arch:     arch,
 	}, nil
 }

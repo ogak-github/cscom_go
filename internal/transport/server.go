@@ -20,16 +20,19 @@ type Server struct {
 	authKey   string
 	sessions  *sessionStore
 	staticDir string
+	version   string
 }
 
 // New creates a Server that serves REST + WebSocket endpoints and static files
 // from staticDir. If authKey is non-empty, all endpoints require authentication.
-func New(collector *metrics.Collector, staticDir string, authKey string) *Server {
+// version is the running build's version, exposed to the dashboard.
+func New(collector *metrics.Collector, staticDir string, authKey string, version string) *Server {
 	s := &Server{
 		collector: collector,
 		authKey:   authKey,
 		sessions:  newSessionStore(),
 		staticDir: staticDir,
+		version:   version,
 	}
 
 	r := chi.NewRouter()
@@ -46,6 +49,7 @@ func New(collector *metrics.Collector, staticDir string, authKey string) *Server
 			r.Use(s.authMiddleware)
 		}
 		r.Get("/api/metrics", s.handleMetrics)
+		r.Get("/api/version", s.handleVersion)
 		r.Get("/ws", s.handleWS)
 		r.Post("/api/logout", s.handleLogout)
 		r.Handle("/*", http.FileServer(http.Dir(staticDir)))
@@ -64,6 +68,13 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(snap); err != nil {
 		log.Printf("metrics encode: %v", err)
+	}
+}
+
+func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]string{"version": s.version}); err != nil {
+		log.Printf("version encode: %v", err)
 	}
 }
 

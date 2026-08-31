@@ -19,6 +19,10 @@ fi
 INSTALL_DIR="/opt/cscom"
 SERVICE="cscom"
 
+# version stamped into the binaries; falls back to "dev" outside a git checkout
+VERSION="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
+LDFLAGS="-s -w -X main.version=${VERSION}"
+
 # ── detect target arch ────────────────────────────────────────────────────────
 echo "→ Detecting architecture…"
 if [[ "$TARGET" == "local" ]]; then
@@ -35,9 +39,9 @@ echo "   linux/$GOARCH"
 
 # ── TUI-only install ────────────────────────────────────────────────────────────
 if [[ "$MODE" == "tui" ]]; then
-  echo "→ Building TUI…"
+  echo "→ Building TUI ${VERSION}…"
   mkdir -p bin
-  GOOS=linux GOARCH=$GOARCH go build -ldflags="-s -w" -o bin/cscom ./cmd/cscom/
+  GOOS=linux GOARCH=$GOARCH go build -ldflags="$LDFLAGS" -o bin/cscom ./cmd/cscom/
 
   if [[ "$TARGET" == "local" ]]; then
     echo "→ Installing to /usr/local/bin…"
@@ -86,10 +90,10 @@ else
 fi
 
 # ── build ─────────────────────────────────────────────────────────────────────
-echo "→ Building binaries…"
+echo "→ Building binaries ${VERSION}…"
 mkdir -p bin
-GOOS=linux GOARCH=$GOARCH go build -ldflags="-s -w" -o bin/cscom        ./cmd/cscom/
-GOOS=linux GOARCH=$GOARCH go build -ldflags="-s -w" -o bin/cscom-serve  ./cmd/cscom-serve/
+GOOS=linux GOARCH=$GOARCH go build -ldflags="$LDFLAGS" -o bin/cscom        ./cmd/cscom/
+GOOS=linux GOARCH=$GOARCH go build -ldflags="$LDFLAGS" -o bin/cscom-serve  ./cmd/cscom-serve/
 
 # ── generate config files ─────────────────────────────────────────────────────
 TMP_ENV=$(mktemp)

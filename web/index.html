@@ -43,6 +43,16 @@
       letter-spacing: 0.06em;
     }
 
+    #ver {
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--dim);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 1px 8px;
+      flex-shrink: 0;
+    }
+
     #dot {
       width: 8px; height: 8px;
       border-radius: 50%;
@@ -231,6 +241,7 @@
 <header>
   <div id="dot"></div>
   <h1>Control System Commander (CSCom)</h1>
+  <span id="ver"></span>
   <span id="ts">Connecting…</span>
 </header>
 
@@ -289,7 +300,9 @@
 
   function renderSystem(s, c) {
     let h = '<div class="card-title">System</div>'
+    h += infoRow('Version', appVersion || '—')
     h += infoRow('Platform', s.platform || '—')
+    h += infoRow('Arch', s.arch || '—')
     h += infoRow('Hostname', s.hostname || '—')
     if (c.uptime) h += infoRow('Uptime', fmtUptime(c.uptime))
     if (c.model)  h += infoRow('CPU', c.model)
@@ -446,6 +459,18 @@
     renderDocker(snap.containers)
     $('ts').textContent = 'Updated ' + new Date().toLocaleTimeString()
   }
+
+  // App version comes from the server build, not the metrics stream.
+  let appVersion = ''
+
+  fetch('/api/version')
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      if (!d || !d.version) return
+      appVersion = d.version
+      $('ver').textContent = d.version
+    })
+    .catch(() => {})
 
   // Load initial snapshot from REST so cards fill instantly.
   // A 401 means the session is gone — send to login.

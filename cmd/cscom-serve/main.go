@@ -13,6 +13,9 @@ import (
 	"yga.my.id/cscom/internal/transport"
 )
 
+// version is injected at build time via -ldflags "-X main.version=..."
+var version = "dev"
+
 func generateKey() string {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
@@ -23,6 +26,11 @@ func generateKey() string {
 }
 
 func main() {
+	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
+		fmt.Println("cscom-serve", version)
+		return
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -45,10 +53,10 @@ func main() {
 		authKey = generateKey()
 	}
 
-	srv := transport.New(collector, webDir, authKey)
+	srv := transport.New(collector, webDir, authKey, version)
 
 	addr := ":" + port
-	fmt.Printf("cscom-serve listening on %s\n", addr)
+	fmt.Printf("cscom-serve %s listening on %s\n", version, addr)
 	fmt.Printf("Dashboard  http://localhost:%s\n", port)
 	fmt.Printf("Auth key   %s\n", authKey)
 	fmt.Printf("Bearer     Authorization: Bearer %s\n", authKey)

@@ -110,6 +110,7 @@ The dashboard is served by the `cscom-serve` binary (managed by systemd):
 
 - Dashboard: `http://<host>:4040`
 - REST API: `http://<host>:4040/api/metrics`
+- Version: `http://<host>:4040/api/version`
 - WebSocket: `ws://<host>:4040/ws`
 
 If `CSCOM_KEY` is set, the dashboard will show a login dialog on first visit.
