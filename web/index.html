@@ -404,15 +404,21 @@
   function renderProc(procs) {
     let h = '<div class="card-title">Processes</div>'
     if (!procs || !procs.length) return h + '<div class="empty">No processes</div>'
+    // PSS is Linux-only and needs permission on the target process, so the
+    // column is dropped entirely when nothing could be read.
+    const showPss = procs.some(p => p.mem_pss > 0)
     h += `<table><thead><tr>
-      <th>PID</th><th>Name</th><th>CPU%</th><th>MEM</th>
+      <th>PID</th><th>Name</th><th>CPU%</th>
+      <th style="text-align:right" title="Resident set size - includes memory shared with other processes">RSS</th>
+      ${showPss ? '<th title="Proportional set size - private memory plus a fair share of shared memory">PSS</th>' : ''}
     </tr></thead><tbody>`
     for (const p of procs)
       h += `<tr>
         <td class="pid">${p.pid}</td>
         <td class="name" title="${p.name}">${p.name}</td>
         <td class="cpu ${tier(p.cpu)}">${p.cpu.toFixed(1)}%</td>
-        <td class="mem">${bytes(p.mem_rss)}</td>
+        <td class="mem" style="text-align:right">${bytes(p.mem_rss)}</td>
+        ${showPss ? `<td class="mem">${p.mem_pss > 0 ? bytes(p.mem_pss) : '-'}</td>` : ''}
       </tr>`
     h += '</tbody></table>'
     return h

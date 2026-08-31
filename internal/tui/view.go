@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	narrowWidth  = 60
-	mediumWidth  = 90
+	narrowWidth    = 60
+	mediumWidth    = 90
 	barWidthNarrow = 14
 	barWidthMedium = 20
 	barWidthWide   = 28
@@ -350,16 +350,42 @@ func renderProcesses(procs []metrics.Process, nameWidth int) string {
 	if len(procs) == 0 {
 		return ""
 	}
+
+	// PSS is Linux-only and needs permission on the target process, so the
+	// column is dropped entirely when nothing could be read - no point
+	// showing a stripe of zeroes on macOS or an unprivileged run.
+	showPSS := false
+	for _, p := range procs {
+		if p.MemPSS > 0 {
+			showPSS = true
+			break
+		}
+	}
+
 	var b strings.Builder
 	b.WriteString(headerStyle.Render("  Processes") + "\n")
-	b.WriteString(dimStyle.Render(fmt.Sprintf("  %-7s  %-*s  %6s  %8s",
-		"PID", nameWidth, "NAME", "CPU%", "MEM")) + "\n")
+	if showPSS {
+		b.WriteString(dimStyle.Render(fmt.Sprintf("  %-7s  %-*s  %6s  %8s  %8s",
+			"PID", nameWidth, "NAME", "CPU%", "RSS", "PSS")) + "\n")
+	} else {
+		b.WriteString(dimStyle.Render(fmt.Sprintf("  %-7s  %-*s  %6s  %8s",
+			"PID", nameWidth, "NAME", "CPU%", "RSS")) + "\n")
+	}
+
 	for _, p := range procs {
-		b.WriteString(fmt.Sprintf("  %-7d  %-*s  %s  %8s\n",
+		row := fmt.Sprintf("  %-7d  %-*s  %s  %8s",
 			p.PID,
 			nameWidth, truncate(p.Name, nameWidth),
 			pctColored(p.CPU, fmt.Sprintf("%5.1f%%", p.CPU)),
-			formatBytes(p.MemRSS)))
+			formatBytes(p.MemRSS))
+		if showPSS {
+			pss := dimStyle.Render(fmt.Sprintf("%8s", "-"))
+			if p.MemPSS > 0 {
+				pss = fmt.Sprintf("%8s", formatBytes(p.MemPSS))
+			}
+			row += "  " + pss
+		}
+		b.WriteString(row + "\n")
 	}
 	return b.String()
 }

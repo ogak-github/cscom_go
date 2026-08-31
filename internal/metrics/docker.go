@@ -131,8 +131,8 @@ func fetchContainerStats(id string) (containerStats, error) {
 			Usage uint64 `json:"usage"`
 			Limit uint64 `json:"limit"`
 			Stats struct {
-				Cache          uint64 `json:"cache"`
-				InactiveFile   uint64 `json:"inactive_file"`
+				Cache        uint64 `json:"cache"`
+				InactiveFile uint64 `json:"inactive_file"`
 			} `json:"stats"`
 		} `json:"memory_stats"`
 		Networks map[string]struct {

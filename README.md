@@ -21,7 +21,7 @@ A lightweight system monitoring tool. CPU, RAM, GPU, Disk, Network, Docker, and 
 - **Fans** — RPM per sensor (via hwmon)
 - **Disk** — usage per mount point
 - **Network** — RX/TX bytes, packets per interface
-- **Processes** — top processes sorted by CPU usage
+- **Processes** — top processes sorted by CPU usage, with RSS and PSS memory (PSS is Linux-only)
 - **Docker** — container CPU%, memory, network I/O (auto-detect, hidden if no containers)
 
 ## Development
