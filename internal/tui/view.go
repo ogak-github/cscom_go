@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -11,9 +12,9 @@ import (
 const (
 	narrowWidth    = 60
 	mediumWidth    = 90
-	barWidthNarrow = 14
-	barWidthMedium = 20
-	barWidthWide   = 28
+	barWidthNarrow = 15
+	barWidthMedium = 25
+	barWidthWide   = 39
 
 	// dockerImageWidth is the column budget for the ID+NAME+IMAGE+CPU%+MEM+
 	// NET↓+NET↑ layout in renderDocker - it needs ~101 columns, so it can't
@@ -289,15 +290,44 @@ func renderDisks(disks []metrics.Disk, bw int) string {
 }
 
 func coloredBar(pct float64, bw int) string {
-	filled := int(pct / 100 * float64(bw))
-	if filled > bw {
-		filled = bw
+	blocks := bw
+	if blocks < 1 {
+		blocks = 1
 	}
-	if filled < 0 {
-		filled = 0
+
+	clamped := pct
+	if clamped < 0 {
+		clamped = 0
+	} else if clamped > 100 {
+		clamped = 100
 	}
-	bar := strings.Repeat("█", filled) + strings.Repeat("░", bw-filled)
-	return "[" + pctColored(pct, bar) + "]"
+
+	filled := int(math.Round(clamped / 100 * float64(blocks)))
+	if clamped > 0 && filled == 0 {
+		filled = 1
+	}
+	if filled > blocks {
+		filled = blocks
+	}
+
+	warnAt := int(math.Ceil(0.60 * float64(blocks)))
+	critAt := int(math.Ceil(0.80 * float64(blocks)))
+
+	parts := make([]string, blocks)
+	for i := 0; i < blocks; i++ {
+		switch {
+		case i >= filled:
+			parts[i] = " "
+		case i >= critAt:
+			parts[i] = critStyle.Render("▮")
+		case i >= warnAt:
+			parts[i] = warnStyle.Render("▮")
+		default:
+			parts[i] = okStyle.Render("▮")
+		}
+	}
+
+	return "[" + strings.Join(parts, "") + "]"
 }
 
 func pctColored(pct float64, s string) string {
