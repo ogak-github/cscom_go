@@ -23,33 +23,46 @@ SERVICE="cscom"
 VERSION="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
 LDFLAGS="-s -w -X main.version=${VERSION}"
 
-# ── detect target arch ────────────────────────────────────────────────────────
-echo "→ Detecting architecture…"
+# ── detect target os/arch ─────────────────────────────────────────────────────
+echo "→ Detecting OS/architecture…"
 if [[ "$TARGET" == "local" ]]; then
-  RAW_ARCH="$(uname -m)"
+  read -r RAW_OS RAW_ARCH < <(uname -sm)
 else
-  RAW_ARCH="$(ssh "$TARGET" uname -m)"
+  read -r RAW_OS RAW_ARCH < <(ssh "$TARGET" uname -sm)
 fi
+case "$RAW_OS" in
+  Linux)  GOOS="linux" ;;
+  Darwin) GOOS="darwin" ;;
+  *)      echo "Error: unsupported OS '$RAW_OS'" >&2; exit 1 ;;
+esac
 case "$RAW_ARCH" in
   x86_64)        GOARCH="amd64" ;;
   aarch64|arm64) GOARCH="arm64" ;;
   *)             GOARCH="amd64" ;;
 esac
-echo "   linux/$GOARCH"
+echo "   $GOOS/$GOARCH"
+
+# the full install relies on systemd, which macOS doesn't have
+if [[ "$GOOS" == "darwin" && "$MODE" == "full" ]]; then
+  echo "Error: full install needs systemd; on macOS use --tui" >&2
+  exit 1
+fi
 
 # ── TUI-only install ────────────────────────────────────────────────────────────
 if [[ "$MODE" == "tui" ]]; then
   echo "→ Building TUI ${VERSION}…"
   mkdir -p bin
-  GOOS=linux GOARCH=$GOARCH go build -ldflags="$LDFLAGS" -o bin/cscom ./cmd/cscom/
+  GOOS=$GOOS GOARCH=$GOARCH go build -ldflags="$LDFLAGS" -o bin/cscom ./cmd/cscom/
 
+  # /usr/local/bin is missing on a fresh Apple Silicon Mac
   if [[ "$TARGET" == "local" ]]; then
     echo "→ Installing to /usr/local/bin…"
+    sudo mkdir -p /usr/local/bin
     sudo install -m 755 bin/cscom /usr/local/bin/cscom
   else
     echo "→ Deploying to ${TARGET}…"
     scp -q bin/cscom "${TARGET}:/tmp/cscom"
-    ssh "$TARGET" "sudo install -m 755 /tmp/cscom /usr/local/bin/cscom && rm -f /tmp/cscom"
+    ssh "$TARGET" "sudo mkdir -p /usr/local/bin && sudo install -m 755 /tmp/cscom /usr/local/bin/cscom && rm -f /tmp/cscom"
   fi
 
   echo ""

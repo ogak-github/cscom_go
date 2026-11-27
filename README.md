@@ -89,6 +89,8 @@ The default (full) install will:
 
 `--tui` skips all of that and just builds `cscom` and installs it to `/usr/local/bin`.
 
+On macOS (local or remote) only `--tui` is supported, since the full install needs systemd. GPU, fan, PSS and CPU temperature aren't available there; those panels are hidden.
+
 ### Uninstall
 
 ```bash

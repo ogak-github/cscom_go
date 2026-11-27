@@ -14,15 +14,16 @@ fi
 DIST="dist/$VERSION"
 rm -rf "$DIST" && mkdir -p "$DIST"
 
-# metrics read /sys/class/{hwmon,drm}, so linux-only targets
-for arch in amd64 arm64; do
-  echo "→ Building linux/$arch…"
-  GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build \
+# darwin builds lack GPU, fan, PSS and CPU temp (those read /sys, /proc or need CGO)
+for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+  os="${target%/*}" arch="${target#*/}"
+  echo "→ Building $target…"
+  GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 go build \
     -ldflags="-s -w -X main.version=${VERSION}" \
-    -o "$DIST/cscom_linux_${arch}" ./cmd/cscom/
+    -o "$DIST/cscom_${os}_${arch}" ./cmd/cscom/
 done
 
-( cd "$DIST" && sha256sum cscom_linux_* > checksums.txt )
+( cd "$DIST" && sha256sum cscom_* > checksums.txt )
 
 echo
 echo "✓ Artifacts in $DIST:"
