@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"yga.my.id/cscom/internal/metrics"
 )
 
@@ -74,28 +75,61 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func renderContent(m Model) string {
-	cw := m.contentWidth()
-	bw := m.boxWidth()
+const (
+	// gridColMinWidth is the narrowest a grid column may get: enough for a
+	// medium bar plus the RAM used/total/avail text on one line.
+	gridColMinWidth = 80
+	gridMaxCols     = 2
+	gridGap         = 1
+)
 
-	sections := []string{
+// renderContent stacks every section on narrow terminals. On wide ones the
+// sections fill a grid row by row, left to right, and boxes sharing a row
+// are stretched to the same height so the rows line up. Empty sections are
+// skipped, so later ones move up to fill their slot.
+func renderContent(m Model) string {
+	cols := min(max(m.width/gridColMinWidth, 1), gridMaxCols)
+	colW := (m.width - (cols-1)*gridGap) / cols
+	cw := contentWidth(colW)
+	bw := barWidth(cw)
+
+	var sections []string
+	for _, s := range []string{
 		renderSystem(m.snap.System, m.snap.CPU, cw),
-		renderCPU(m.snap.CPU, m.barWidth(), m.compact()),
-		renderFans(m.snap.Fans),
-		renderRAM(m.snap.RAM, m.barWidth()),
-		renderGPU(m.snap.GPUs, m.barWidth()),
-		renderDisks(m.snap.Disks, m.barWidth()),
+		renderCPU(m.snap.CPU, bw, cw < narrowWidth),
+		renderRAM(m.snap.RAM, bw),
+		renderGPU(m.snap.GPUs, bw),
+		renderDisks(m.snap.Disks, bw),
 		renderNetwork(m.snap.Networks, cw),
-		renderProcesses(m.snap.Processes, m.processNameWidth()),
-		renderDocker(m.snap.Containers, m.barWidth(), cw),
+		renderFans(m.snap.Fans),
+		renderProcesses(m.snap.Processes, processNameWidth(cw)),
+		renderDocker(m.snap.Containers, bw, cw),
+	} {
+		if s != "" {
+			sections = append(sections, s)
+		}
 	}
 
 	var b strings.Builder
-	for _, s := range sections {
-		if boxed := renderBox(s, bw); boxed != "" {
-			b.WriteString(boxed)
-			b.WriteString("\n")
+	for i := 0; i < len(sections); i += cols {
+		row := sections[i:min(i+cols, len(sections))]
+
+		// measure the rendered boxes (long lines wrap inside them), then
+		// stretch every box in the row to the tallest one
+		h := 0
+		for _, s := range row {
+			h = max(h, lipgloss.Height(renderBox(s, boxWidth(colW), 0)))
 		}
+
+		parts := make([]string, 0, 2*len(row))
+		for j, s := range row {
+			if j > 0 {
+				parts = append(parts, strings.Repeat(" ", gridGap))
+			}
+			parts = append(parts, renderBox(s, boxWidth(colW), h-2)) // minus top+bottom border
+		}
+		b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, parts...))
+		b.WriteString("\n")
 	}
 
 	return b.String()

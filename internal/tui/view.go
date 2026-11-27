@@ -44,63 +44,48 @@ var (
 )
 
 // contentWidth is how much horizontal space a section's text actually has
-// once a rounded box's border and padding are subtracted from the terminal
-// width - bar/column sizing must be based on this, not the raw width.
-func (m Model) contentWidth() int {
-	w := m.width - boxBorderWidth - boxPadding
-	if w < 1 {
-		w = 1
-	}
-	return w
+// once a rounded box's border and padding are subtracted from the width the
+// box occupies (the terminal, or one grid column) - bar/column sizing must
+// be based on this, not the raw width.
+func contentWidth(outer int) int {
+	return max(outer-boxBorderWidth-boxPadding, 1)
 }
 
 // boxWidth is the width to hand lipgloss's Width(), which already accounts
 // for padding internally - the rounded border adds boxBorderWidth on top of
-// this to reach the full terminal width.
-func (m Model) boxWidth() int {
-	w := m.width - boxBorderWidth
-	if w < 1 {
-		w = 1
-	}
-	return w
+// this to reach the full outer width.
+func boxWidth(outer int) int {
+	return max(outer-boxBorderWidth, 1)
 }
 
-// renderBox wraps a section's content in a rounded box, or returns "" if
-// the section had nothing to show - keeping the existing "hidden when
-// empty" convention for optional metrics.
-func renderBox(content string, width int) string {
-	if content == "" {
-		return ""
-	}
-	return boxStyle.Width(width).Render(strings.TrimRight(content, "\n"))
+// renderBox wraps a section's content in a rounded box whose content area
+// is at least height lines tall, so boxes sharing a grid row line up; the
+// content is centred vertically in any extra space.
+func renderBox(content string, width, height int) string {
+	return boxStyle.Width(width).Height(height).AlignVertical(lipgloss.Center).
+		Render(strings.TrimRight(content, "\n"))
 }
 
-func (m Model) barWidth() int {
-	w := m.contentWidth()
+func barWidth(cw int) int {
 	switch {
-	case w < narrowWidth:
+	case cw < narrowWidth:
 		return barWidthNarrow
-	case w < mediumWidth:
+	case cw < mediumWidth:
 		return barWidthMedium
 	default:
 		return barWidthWide
 	}
 }
 
-func (m Model) processNameWidth() int {
-	w := m.contentWidth()
+func processNameWidth(cw int) int {
 	switch {
-	case w < narrowWidth:
+	case cw < narrowWidth:
 		return 12
-	case w < mediumWidth:
+	case cw < mediumWidth:
 		return 16
 	default:
 		return 24
 	}
-}
-
-func (m Model) compact() bool {
-	return m.contentWidth() < narrowWidth
 }
 
 func (m Model) View() string {
@@ -165,7 +150,8 @@ func renderCPU(c metrics.CPU, bw int, compact bool) string {
 		modelMax := 40
 		if compact {
 			modelMax = 0
-		} else if bw < barWidthMedium {
+		} else if bw < barWidthWide {
+			// header must fit in ~75 columns next to load and temp
 			modelMax = 20
 		}
 		if modelMax > 0 {
