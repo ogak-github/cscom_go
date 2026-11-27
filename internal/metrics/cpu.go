@@ -3,9 +3,10 @@ package metrics
 import (
 	"strings"
 
-	"github.com/shirou/gopsutil/v3/cpu"
-	"github.com/shirou/gopsutil/v3/host"
-	"github.com/shirou/gopsutil/v3/load"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/host"
+	"github.com/shirou/gopsutil/v4/load"
+	"github.com/shirou/gopsutil/v4/sensors"
 )
 
 type CPU struct {
@@ -41,7 +42,7 @@ func collectCPU() (CPU, error) {
 	// SensorsTemperatures commonly returns a non-nil error alongside valid
 	// partial results (e.g. one unreadable sensor among many) - the data
 	// that did come back is still useful, so the error itself is ignored.
-	temps, _ := host.SensorsTemperatures()
+	temps, _ := sensors.SensorsTemperatures()
 
 	return CPU{
 		Model:   model,
@@ -58,7 +59,7 @@ func collectCPU() (CPU, error) {
 // selectCPUTemp picks the single most representative "CPU temperature" out
 // of whatever hwmon sensors gopsutil found, since the key naming differs by
 // vendor/platform. Returns -1 if nothing recognizable was found.
-func selectCPUTemp(temps []host.TemperatureStat) float64 {
+func selectCPUTemp(temps []sensors.TemperatureStat) float64 {
 	var coreSum float64
 	var coreCount int
 

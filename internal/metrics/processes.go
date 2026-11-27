@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	gproc "github.com/shirou/gopsutil/v3/process"
+	gproc "github.com/shirou/gopsutil/v4/process"
 )
 
 const maxProcesses = 10

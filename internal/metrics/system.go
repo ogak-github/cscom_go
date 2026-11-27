@@ -1,6 +1,6 @@
 package metrics
 
-import "github.com/shirou/gopsutil/v3/host"
+import "github.com/shirou/gopsutil/v4/host"
 
 type System struct {
 	Hostname string `json:"hostname"`

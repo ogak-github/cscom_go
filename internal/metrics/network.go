@@ -3,7 +3,7 @@ package metrics
 import (
 	"time"
 
-	gnet "github.com/shirou/gopsutil/v3/net"
+	gnet "github.com/shirou/gopsutil/v4/net"
 )
 
 type Network struct {

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	gproc "github.com/shirou/gopsutil/v3/process"
+	gproc "github.com/shirou/gopsutil/v4/process"
 )
 
 // Snapshot is a point-in-time reading of all metrics.
@@ -97,22 +97,12 @@ func (c *Collector) Latest() Snapshot {
 }
 
 func (c *Collector) refresh() {
-	sys, err := collectSystem()
-	if err != nil {
-		return
-	}
-	cpu, err := collectCPU()
-	if err != nil {
-		return
-	}
-	ram, err := collectRAM()
-	if err != nil {
-		return
-	}
-	disks, err := collectDisks()
-	if err != nil {
-		return
-	}
+	// Each section fails independently: one unsupported metric on some
+	// platform must not blank out the rest of the snapshot.
+	sys, _ := collectSystem()
+	cpu, _ := collectCPU()
+	ram, _ := collectRAM()
+	disks, _ := collectDisks()
 	nets, newNetSample, _ := collectNetwork(c.prevNet)
 	c.prevNet = newNetSample
 

@@ -1,6 +1,6 @@
 package metrics
 
-import "github.com/shirou/gopsutil/v3/mem"
+import "github.com/shirou/gopsutil/v4/mem"
 
 type RAM struct {
 	Total     uint64  `json:"total"`
