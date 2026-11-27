@@ -90,5 +90,33 @@ func selectCPUTemp(temps []sensors.TemperatureStat) float64 {
 		}
 	}
 
+	// Apple Silicon: average the P/E core cluster sensors, falling back to
+	// the PMU die sensors on chips that don't expose them.
+	if avg, ok := avgTemp(temps, func(k string) bool {
+		return strings.HasPrefix(k, "pACC MTR Temp Sensor") || strings.HasPrefix(k, "eACC MTR Temp Sensor")
+	}); ok {
+		return avg
+	}
+	if avg, ok := avgTemp(temps, func(k string) bool {
+		return strings.HasPrefix(k, "PMU") && strings.Contains(k, " tdie")
+	}); ok {
+		return avg
+	}
+
 	return -1
+}
+
+func avgTemp(temps []sensors.TemperatureStat, match func(string) bool) (float64, bool) {
+	var sum float64
+	var n int
+	for _, t := range temps {
+		if match(t.SensorKey) {
+			sum += t.Temperature
+			n++
+		}
+	}
+	if n == 0 {
+		return 0, false
+	}
+	return sum / float64(n), true
 }

@@ -21,6 +21,27 @@ var pseudoFS = map[string]bool{
 	"mqueue": true, "debugfs": true, "hugetlbfs": true, "securityfs": true,
 	"configfs": true, "fusectl": true, "bpf": true, "tracefs": true,
 	"overlay": true, "squashfs": true, "efivarfs": true, "autofs": true,
+	"devfs": true, "devicefs": true, // macOS
+}
+
+// macOS mounts its sealed system volumes, cryptexes and simulator runtimes
+// as separate APFS volumes; the user only cares about / and /Volumes/*.
+var hiddenMountPrefixes = []string{
+	"/System/Volumes/",
+	"/private/var/",
+	"/Library/Developer/CoreSimulator/",
+}
+
+func skipPartition(p disk.PartitionStat) bool {
+	if pseudoFS[p.Fstype] || strings.HasPrefix(p.Device, "/dev/loop") {
+		return true
+	}
+	for _, prefix := range hiddenMountPrefixes {
+		if strings.HasPrefix(p.Mountpoint, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func collectDisks() ([]Disk, error) {
@@ -31,10 +52,7 @@ func collectDisks() ([]Disk, error) {
 
 	var disks []Disk
 	for _, p := range parts {
-		if pseudoFS[p.Fstype] {
-			continue
-		}
-		if strings.HasPrefix(p.Device, "/dev/loop") {
+		if skipPartition(p) {
 			continue
 		}
 		usage, err := disk.Usage(p.Mountpoint)
